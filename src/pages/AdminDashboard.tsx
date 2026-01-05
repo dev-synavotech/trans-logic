@@ -34,7 +34,8 @@ import {
 } from "@/components/ui/dialog";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import StatsCard from "@/components/dashboard/StatsCard";
-import { supabase } from "@/integrations/supabase/client";
+// Supabase removed; admin data will be fetched from backend in future.
+// For now, use placeholder data and local state updates.
 import { toast } from "sonner";
 
 interface Booking {
@@ -78,63 +79,16 @@ const AdminDashboard = () => {
 
   useEffect(() => {
     fetchData();
-    
-    // Subscribe to real-time booking updates
-    const channel = supabase
-      .channel('admin-bookings')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'bookings' },
-        (payload) => {
-          if (payload.eventType === 'INSERT') {
-            setBookings(prev => [payload.new as Booking, ...prev]);
-          } else if (payload.eventType === 'UPDATE') {
-            setBookings(prev => prev.map(b => 
-              b.id === (payload.new as Booking).id ? payload.new as Booking : b
-            ));
-          }
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    // TODO: wire real-time updates from backend
   }, []);
 
   const fetchData = async () => {
     setLoading(true);
     try {
-      // Fetch bookings
-      const { data: bookingsData } = await supabase
-        .from('bookings')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(50);
-      
-      if (bookingsData) setBookings(bookingsData);
-
-      // Fetch truck types
-      const { data: trucksData } = await supabase
-        .from('truck_types')
-        .select('*')
-        .order('price_per_km', { ascending: true });
-      
-      if (trucksData) setTruckTypes(trucksData);
-
-      // Fetch providers (users with provider role)
-      const { data: providersData } = await supabase
-        .from('profiles')
-        .select('id, email, full_name, user_id')
-        .limit(100);
-      
-      if (providersData) {
-        setProviders(providersData.map(p => ({
-          id: p.user_id,
-          email: p.email || '',
-          full_name: p.full_name
-        })));
-      }
+      // TODO: replace with backend API calls. For now use placeholders.
+      setBookings([]);
+      setTruckTypes([]);
+      setProviders([]);
     } catch (err) {
       console.error('Error fetching data:', err);
     } finally {
@@ -151,68 +105,32 @@ const AdminDashboard = () => {
   };
 
   const handlePriceSave = async (truckId: string) => {
-    try {
-      const { error } = await supabase
-        .from('truck_types')
-        .update({ price_per_km: editedPrices[truckId] })
-        .eq('id', truckId);
-
-      if (error) throw error;
-
-      setTruckTypes(prev => prev.map(t => 
-        t.id === truckId ? { ...t, price_per_km: editedPrices[truckId] } : t
-      ));
-      setEditingTruck(null);
-      toast.success('Price updated successfully');
-    } catch (err) {
-      toast.error('Failed to update price');
-    }
+    // Persisting price changes to backend not yet implemented; update locally
+    setTruckTypes(prev => prev.map(t => 
+      t.id === truckId ? { ...t, price_per_km: editedPrices[truckId] } : t
+    ));
+    setEditingTruck(null);
+    toast.success('Price updated (local)');
   };
 
   const handleAssignProvider = async () => {
     if (!selectedBooking || !selectedProvider) return;
-
-    try {
-      const { error } = await supabase
-        .from('bookings')
-        .update({ 
-          provider_id: selectedProvider,
-          status: 'confirmed'
-        })
-        .eq('id', selectedBooking.id);
-
-      if (error) throw error;
-
-      setBookings(prev => prev.map(b => 
-        b.id === selectedBooking.id 
-          ? { ...b, provider_id: selectedProvider, status: 'confirmed' }
-          : b
-      ));
-      setAssignDialogOpen(false);
-      setSelectedBooking(null);
-      setSelectedProvider("");
-      toast.success('Provider assigned successfully');
-    } catch (err) {
-      toast.error('Failed to assign provider');
-    }
+    // Local update only for now
+    setBookings(prev => prev.map(b => 
+      b.id === selectedBooking.id 
+        ? { ...b, provider_id: selectedProvider, status: 'confirmed' }
+        : b
+    ));
+    setAssignDialogOpen(false);
+    setSelectedBooking(null);
+    setSelectedProvider("");
+    toast.success('Provider assigned (local)');
   };
 
   const updateBookingStatus = async (bookingId: string, status: string) => {
-    try {
-      const { error } = await supabase
-        .from('bookings')
-        .update({ status })
-        .eq('id', bookingId);
-
-      if (error) throw error;
-
-      setBookings(prev => prev.map(b => 
-        b.id === bookingId ? { ...b, status } : b
-      ));
-      toast.success(`Status updated to ${status}`);
-    } catch (err) {
-      toast.error('Failed to update status');
-    }
+    // Local update only
+    setBookings(prev => prev.map(b => b.id === bookingId ? { ...b, status } : b));
+    toast.success(`Status updated to ${status}`);
   };
 
   const getStatusColor = (status: string) => {
