@@ -25,6 +25,8 @@ import { useState } from "react";
 
 interface DashboardSidebarProps {
   role?: "admin" | "support" | "affiliate" | "customer" | "provider";
+  collapsed?: boolean;
+  onToggle?: () => void;
 }
 
 const getMenuItems = (role: string) => {
@@ -84,8 +86,7 @@ const getMenuItems = (role: string) => {
   }
 };
 
-const DashboardSidebar = ({ role = "admin" }: DashboardSidebarProps) => {
-  const [collapsed, setCollapsed] = useState(false);
+const DashboardSidebar = ({ role = "admin", collapsed = false, onToggle }: DashboardSidebarProps) => {
   const [mobileOpen, setMobileOpen] = useState(false);
   const location = useLocation();
   const menuItems = getMenuItems(role);
@@ -185,7 +186,7 @@ const DashboardSidebar = ({ role = "admin" }: DashboardSidebarProps) => {
 
         {/* Collapse Toggle - Desktop Only */}
         <button
-          onClick={() => setCollapsed(!collapsed)}
+          onClick={() => onToggle && onToggle()}
           className="hidden lg:flex absolute -right-3 top-20 w-6 h-6 rounded-full bg-sidebar-primary text-sidebar-primary-foreground items-center justify-center shadow-medium hover:scale-110 transition-transform"
         >
           {collapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}

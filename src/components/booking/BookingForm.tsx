@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import RouteMap from "./RouteMap";
 import { useAuth } from "@/hooks/useAuth";
-import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
 const steps = [
@@ -92,45 +91,18 @@ const BookingForm = () => {
       navigate("/auth");
       return;
     }
-
     if (!formData.pickupDate) {
       toast.error("Please select a pickup date");
       return;
     }
 
+    // TODO: call backend booking API. For now, simulate success.
     setSubmitting(true);
-
     try {
-      // Generate a temporary booking number (will be replaced by trigger)
-      const tempBookingNumber = `BK${Date.now()}`;
-      
-      const { error } = await supabase.from("bookings").insert({
-        booking_number: tempBookingNumber,
-        user_id: user.id,
-        origin: formData.origin,
-        destination: formData.destination,
-        origin_lat: routeInfo?.originCoords[1],
-        origin_lng: routeInfo?.originCoords[0],
-        destination_lat: routeInfo?.destCoords[1],
-        destination_lng: routeInfo?.destCoords[0],
-        pickup_date: formData.pickupDate,
-        package_weight: formData.weight ? parseFloat(formData.weight) : null,
-        package_length: formData.length ? parseFloat(formData.length) : null,
-        package_width: formData.width ? parseFloat(formData.width) : null,
-        package_height: formData.height ? parseFloat(formData.height) : null,
-        package_description: formData.description,
-        distance_km: routeInfo?.distance,
-        estimated_hours: routeInfo?.duration,
-        total_price: calculatePrice(),
-        status: "pending",
-      });
-
-      if (error) throw error;
-
+      await new Promise((r) => setTimeout(r, 600));
       toast.success("Booking confirmed! You can track it in your dashboard.");
       navigate("/customer");
     } catch (err) {
-      console.error("Booking error:", err);
       toast.error("Failed to create booking. Please try again.");
     } finally {
       setSubmitting(false);

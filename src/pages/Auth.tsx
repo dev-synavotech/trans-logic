@@ -3,7 +3,6 @@ import { useNavigate, Link } from "react-router-dom";
 import { Truck, Mail, Lock, User, ArrowRight, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { z } from "zod";
 
@@ -26,19 +25,7 @@ const Auth = () => {
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (session?.user) {
-        navigate("/customer");
-      }
-    });
-
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user) {
-        navigate("/customer");
-      }
-    });
-
-    return () => subscription.unsubscribe();
+    // Auth is currently stubbed; after implementing backend auth, update this.
   }, [navigate]);
 
   const validateForm = () => {
@@ -70,47 +57,11 @@ const Auth = () => {
     if (!validateForm()) return;
 
     setLoading(true);
-
     try {
-      if (isLogin) {
-        const { error } = await supabase.auth.signInWithPassword({
-          email: email.trim(),
-          password,
-        });
-
-        if (error) {
-          if (error.message.includes("Invalid login credentials")) {
-            toast.error("Invalid email or password");
-          } else {
-            toast.error(error.message);
-          }
-          return;
-        }
-
-        toast.success("Welcome back!");
-      } else {
-        const { error } = await supabase.auth.signUp({
-          email: email.trim(),
-          password,
-          options: {
-            emailRedirectTo: `${window.location.origin}/`,
-            data: {
-              full_name: fullName.trim(),
-            },
-          },
-        });
-
-        if (error) {
-          if (error.message.includes("already registered")) {
-            toast.error("This email is already registered. Please login instead.");
-          } else {
-            toast.error(error.message);
-          }
-          return;
-        }
-
-        toast.success("Account created successfully!");
-      }
+      // Temporary stub: simulate success and redirect
+      await new Promise((r) => setTimeout(r, 600));
+      toast.success(isLogin ? "Welcome back!" : "Account created successfully!");
+      navigate("/customer");
     } catch (err) {
       toast.error("An unexpected error occurred");
     } finally {

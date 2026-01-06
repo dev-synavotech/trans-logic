@@ -18,7 +18,6 @@ import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import StatsCard from "@/components/dashboard/StatsCard";
 import LiveTrackingMap from "@/components/tracking/LiveTrackingMap";
 import customerHero from "@/assets/customer-hero.png";
-import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 
 interface Booking {
@@ -52,38 +51,8 @@ const CustomerDashboard = () => {
     }
 
     if (user) {
+      // Bookings will be fetched from backend in future; for now use the placeholder
       fetchBookings();
-      
-      // Subscribe to real-time updates
-      const channel = supabase
-        .channel('customer-bookings')
-        .on(
-          'postgres_changes',
-          { 
-            event: '*', 
-            schema: 'public', 
-            table: 'bookings',
-            filter: `user_id=eq.${user.id}`
-          },
-          (payload) => {
-            if (payload.eventType === 'INSERT') {
-              setBookings(prev => [payload.new as Booking, ...prev]);
-            } else if (payload.eventType === 'UPDATE') {
-              setBookings(prev => prev.map(b => 
-                b.id === (payload.new as Booking).id ? payload.new as Booking : b
-              ));
-              // Update selected tracking if it matches
-              if (selectedTracking?.id === (payload.new as Booking).id) {
-                setSelectedTracking(payload.new as Booking);
-              }
-            }
-          }
-        )
-        .subscribe();
-
-      return () => {
-        supabase.removeChannel(channel);
-      };
     }
   }, [user, authLoading, navigate]);
 
@@ -92,22 +61,8 @@ const CustomerDashboard = () => {
     
     setLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('bookings')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      
-      if (data) {
-        setBookings(data);
-        // Auto-select first in-transit booking for tracking
-        const inTransit = data.find(b => b.status === 'in_transit');
-        if (inTransit) setSelectedTracking(inTransit);
-      }
-    } catch (err) {
-      console.error('Error fetching bookings:', err);
+      // TODO: replace with backend API call to fetch user bookings
+      setBookings([]);
     } finally {
       setLoading(false);
     }
