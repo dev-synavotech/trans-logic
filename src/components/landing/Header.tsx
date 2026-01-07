@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { Menu, X, Truck, ChevronDown, User, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -13,7 +13,36 @@ import {
 
 const Header = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const { user, signOut } = useAuth();
+  const { user, session, signOut } = useAuth();
+  const [trucks, setTrucks] = useState<any[]>([]);
+  const [loadingTrucks, setLoadingTrucks] = useState(false);
+
+  useEffect(() => {
+    const fetchTrucks = async () => {
+      if (!user || user.role !== 'Provider') return;
+      const token = session?.token || localStorage.getItem('authToken');
+      if (!token) return;
+      setLoadingTrucks(true);
+      try {
+        const res = await fetch('http://localhost:8000/providers/trucks?page=1&limit=5', {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!res.ok) {
+          console.warn('Failed to fetch trucks', res.status);
+          setTrucks([]);
+        } else {
+          const body = await res.json();
+          // backend returns { data: rows, total }
+          setTrucks(body.data || []);
+        }
+      } catch (err) {
+        console.error('Error fetching trucks', err);
+      } finally {
+        setLoadingTrucks(false);
+      }
+    };
+    fetchTrucks();
+  }, [user, session]);
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-xl border-b border-border/50">
@@ -44,12 +73,41 @@ const Header = () => {
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" size="default" className="gap-2">
                     <User className="w-4 h-4" />
-                    <span className="max-w-[150px] truncate">{user.email}</span>
+                    <span className="max-w-[150px] truncate">{user.username || user.email}</span>
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuContent align="end" className="w-80">
+                  <div className="p-3">
+                    <div className="font-medium">{user.username || 'User'}</div>
+                    <div className="text-xs text-muted-foreground truncate">{user.email}</div>
+                    <div className="text-xs text-muted-foreground mt-1">Role: {user.role}</div>
+                  </div>
+                  <DropdownMenuSeparator />
+                  {user.role === 'Provider' && (
+                    <div className="p-2">
+                      <div className="text-sm font-medium mb-2">Your Trucks</div>
+                      {loadingTrucks ? (
+                        <div className="text-sm text-muted-foreground">Loading…</div>
+                      ) : trucks.length ? (
+                        trucks.slice(0,3).map((t:any) => (
+                          <DropdownMenuItem key={t.id} className="flex flex-col">
+                            <div className="font-medium">{t.truck_name || t.truck_number}</div>
+                            <div className="text-xs text-muted-foreground">{t.truck_number} • {t.truck_type}</div>
+                          </DropdownMenuItem>
+                        ))
+                      ) : (
+                        <div className="text-sm text-muted-foreground">No trucks found</div>
+                      )}
+                      <div className="mt-2">
+                        <DropdownMenuItem asChild>
+                          <Link to="/provider" className="cursor-pointer">Manage Trucks</Link>
+                        </DropdownMenuItem>
+                      </div>
+                    </div>
+                  )}
+                  <DropdownMenuSeparator />
                   <DropdownMenuItem asChild>
-                    <Link to="/customer" className="cursor-pointer">
+                    <Link to={user.role === 'Provider' ? '/provider' : '/customer'} className="cursor-pointer">
                       My Dashboard
                     </Link>
                   </DropdownMenuItem>

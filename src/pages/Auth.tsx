@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
+import { useAuth } from "@/hooks/useAuth";
 import { Truck, Mail, Lock, User, ArrowRight, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,21 +8,24 @@ import { toast } from "sonner";
 import { z } from "zod";
 
 const loginSchema = z.object({
-  email: z.string().email("Please enter a valid email"),
-  password: z.string().min(6, "Password must be at least 6 characters"),
+  email: z.string().email('Please enter a valid email'),
+  password: z.string().min(6, 'Password must be at least 6 characters'),
 });
 
 const signupSchema = loginSchema.extend({
-  fullName: z.string().min(2, "Name must be at least 2 characters"),
+  username: z.string().min(2, 'Username must be at least 2 characters'),
+  role: z.enum(['Provider', 'Customer']),
 });
 
 const Auth = () => {
   const navigate = useNavigate();
+  const { refresh } = useAuth();
   const [isLogin, setIsLogin] = useState(true);
   const [loading, setLoading] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [fullName, setFullName] = useState("");
+  const [username, setUsername] = useState("");
+  const [role, setRole] = useState<'Provider' | 'Customer'>('Customer');
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
@@ -34,7 +38,7 @@ const Auth = () => {
       if (isLogin) {
         loginSchema.parse({ email, password });
       } else {
-        signupSchema.parse({ email, password, fullName });
+        signupSchema.parse({ email, password, username, role });
       }
       return true;
     } catch (err) {
@@ -58,12 +62,56 @@ const Auth = () => {
 
     setLoading(true);
     try {
-      // Temporary stub: simulate success and redirect
-      await new Promise((r) => setTimeout(r, 600));
-      toast.success(isLogin ? "Welcome back!" : "Account created successfully!");
-      navigate("/customer");
+      if (!isLogin) {
+        // Sign up flow: call backend
+        const payload = { username, email, password, role };
+        const res = await fetch('http://localhost:8000/api/auth/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        const body = await res.json();
+        if (!res.ok) {
+          toast.error(body.error || 'Registration failed');
+        } else {
+          toast.success('Account created successfully');
+          navigate('/login');
+        }
+      } else {
+        // Login: call backend and save JWT
+        const res = await fetch('http://localhost:8000/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password }),
+        });
+        console.log('Login status', res.status);
+        let body: any = null;
+        try {
+          body = await res.json();
+        } catch (err) {
+          console.error('Failed to parse login JSON', err);
+        }
+        console.log('Login response', res.status, body);
+        if (!res.ok) {
+          const msg = (body && (body.error || body.message)) || `Login failed (${res.status})`;
+          toast.error(msg);
+        } else {
+          if (body && body.token) {
+            localStorage.setItem('authToken', body.token);
+            try {
+              await refresh();
+            } catch (err) {
+              console.warn('refresh after login failed', err);
+            }
+          } else {
+            console.warn('Login succeeded but no token returned', body);
+          }
+          toast.success('Welcome back!');
+          navigate('/');
+        }
+      }
     } catch (err) {
-      toast.error("An unexpected error occurred");
+      toast.error('An unexpected error occurred');
     } finally {
       setLoading(false);
     }
@@ -99,24 +147,39 @@ const Auth = () => {
           {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-4">
             {!isLogin && (
-              <div>
-                <label className="block text-sm font-medium text-foreground mb-2">
-                  Full Name
-                </label>
-                <div className="relative">
-                  <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-                  <Input
-                    type="text"
-                    placeholder="John Doe"
-                    value={fullName}
-                    onChange={(e) => setFullName(e.target.value)}
-                    className="pl-11 h-12"
-                  />
+              <>
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-2">
+                    Username
+                  </label>
+                  <div className="relative">
+                    <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                    <Input
+                      type="text"
+                      placeholder="username"
+                      value={username}
+                      onChange={(e) => setUsername(e.target.value)}
+                      className="pl-11 h-12"
+                    />
+                  </div>
+                  {errors.username && (
+                    <p className="text-sm text-destructive mt-1">{errors.username}</p>
+                  )}
                 </div>
-                {errors.fullName && (
-                  <p className="text-sm text-destructive mt-1">{errors.fullName}</p>
-                )}
-              </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-2">Role</label>
+                  <select
+                    value={role}
+                    onChange={(e) => setRole(e.target.value as any)}
+                    className="w-full h-12 rounded-md border bg-input px-3"
+                  >
+                    <option value="Customer">Customer</option>
+                    <option value="Provider">Provider</option>
+                  </select>
+                  {errors.role && <p className="text-sm text-destructive mt-1">{errors.role}</p>}
+                </div>
+              </>
             )}
 
             <div>

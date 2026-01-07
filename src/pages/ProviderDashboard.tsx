@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
+import { getToken } from '@/lib/auth';
 import {
   Dialog,
   DialogTrigger,
@@ -74,7 +75,10 @@ const ProviderDashboard = () => {
       qs.set('page', String(page));
       qs.set('limit', String(limit));
 
-      const res = await fetch(`http://localhost:8000/providers/trucks?${qs.toString()}`);
+      const token = getToken();
+      const res = await fetch(`http://localhost:8000/providers/trucks?${qs.toString()}`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      });
       if (!res.ok) throw new Error('Failed to fetch trucks');
       const body = await res.json();
       setTrucks(body.data || []);
@@ -89,7 +93,10 @@ const ProviderDashboard = () => {
   const fetchRoutesForTruck = async (truckId: number) => {
     setLoadingRoutesFor(truckId);
     try {
-      const res = await fetch(`http://localhost:8000/providers/trucks/${truckId}/routes`);
+      const token = getToken();
+      const res = await fetch(`http://localhost:8000/providers/trucks/${truckId}/routes`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      });
       if (!res.ok) throw new Error('Failed to fetch routes');
       const body = await res.json();
       setTruckRoutesMap((m) => ({ ...m, [truckId]: body.data || [] }));
@@ -226,7 +233,8 @@ const ProviderDashboard = () => {
                           <Button size="sm" variant="destructive" onClick={async () => {
                             if (!confirm('Delete this truck?')) return;
                             try {
-                              const res = await fetch(`http://localhost:8000/providers/trucks/${t.id}`, { method: 'DELETE' });
+                              const token = getToken();
+                              const res = await fetch(`http://localhost:8000/providers/trucks/${t.id}`, { method: 'DELETE', headers: token ? { Authorization: `Bearer ${token}` } : undefined });
                               if (!res.ok) throw new Error('Delete failed');
                               fetchTrucks();
                             } catch (err) {
@@ -421,16 +429,17 @@ const AddTruckForm = ({ onSaved, initialData }: { onSaved?: () => void; initialD
       };
 
       let res;
+      const token = getToken();
       if (initialData && initialData.id) {
         res = await fetch(`http://localhost:8000/providers/trucks/${initialData.id}`, {
           method: "PUT",
-          headers: { "Content-Type": "application/json" },
+          headers: Object.assign({ "Content-Type": "application/json" }, token ? { Authorization: `Bearer ${token}` } : {}),
           body: JSON.stringify(payload),
         });
       } else {
         res = await fetch("http://localhost:8000/providers/trucks", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: Object.assign({ "Content-Type": "application/json" }, token ? { Authorization: `Bearer ${token}` } : {}),
           body: JSON.stringify(payload),
         });
       }

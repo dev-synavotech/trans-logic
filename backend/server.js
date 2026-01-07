@@ -3,6 +3,11 @@ const express = require('express');
 const cors = require('cors');
 const ProviderModel = require('./models/providerModel');
 const RouteModel = require('./models/routeModel');
+const UserModel = require('./models/userModel');
+const bcrypt = require('bcryptjs');
+const { runMigrations } = require('./migrate');
+const jwt = require('jsonwebtoken');
+const { authenticate, authorizeRole } = require('./auth');
 
 const app = express();
 const PORT = process.env.PORT || 8000;
@@ -10,7 +15,66 @@ const PORT = process.env.PORT || 8000;
 app.use(cors());
 app.use(express.json());
 
-app.post('/providers/trucks', async (req, res) => {
+// Registration endpoint
+app.post('/api/auth/register', async (req, res) => {
+  try {
+    const { username, email, password, role } = req.body;
+    if (!username || !email || !password || !role) {
+      return res.status(400).json({ error: 'username, email, password and role are required' });
+    }
+
+    const allowed = ['Provider', 'Customer'];
+    if (!allowed.includes(role)) {
+      return res.status(400).json({ error: 'Invalid role' });
+    }
+
+    const existing = await UserModel.findByEmail(email);
+    if (existing) return res.status(409).json({ error: 'Email already registered' });
+
+    const password_hash = bcrypt.hashSync(password, 10);
+    const result = await UserModel.createUser({ username, email, password_hash, role });
+    res.status(201).json({ id: result.id, message: 'User created' });
+  } catch (err) {
+    console.error('Registration error', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Login endpoint -> returns JWT
+app.post('/api/auth/login', async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    if (!email || !password) return res.status(400).json({ error: 'email and password are required' });
+    const user = await UserModel.findByEmail(email);
+    if (!user) return res.status(401).json({ error: 'Invalid credentials' });
+    const ok = bcrypt.compareSync(password, user.password_hash);
+    if (!ok) return res.status(401).json({ error: 'Invalid credentials' });
+
+    const token = jwt.sign({ id: user.id, email: user.email, role: user.role }, process.env.JWT_SECRET || 'change-this-secret', { expiresIn: '7d' });
+    res.json({ token });
+  } catch (err) {
+    console.error('Login error', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Current user profile
+app.get('/api/auth/me', authenticate, async (req, res) => {
+  try {
+    const userId = req.user && req.user.id;
+    if (!userId) return res.status(401).json({ error: 'Unauthenticated' });
+    const user = await UserModel.findById(userId);
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    // avoid leaking password hash
+    const { password_hash, ...safe } = user;
+    res.json({ user: safe });
+  } catch (err) {
+    console.error('Profile error', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+app.post('/providers/trucks', authenticate, authorizeRole('Provider'), async (req, res) => {
   try {
     const payload = req.body;
     // Basic validation
@@ -27,7 +91,7 @@ app.post('/providers/trucks', async (req, res) => {
 });
 
 // GET trucks with optional filters and pagination
-app.get('/providers/trucks', async (req, res) => {
+app.get('/providers/trucks', authenticate, authorizeRole('Provider'), async (req, res) => {
   try {
     const { type, min_capacity, location, page = 1, limit = 20 } = req.query;
     const filters = {
@@ -47,7 +111,7 @@ app.get('/providers/trucks', async (req, res) => {
 });
 
 // Update truck
-app.put('/providers/trucks/:truckId', async (req, res) => {
+app.put('/providers/trucks/:truckId', authenticate, authorizeRole('Provider'), async (req, res) => {
   try {
     const truckId = Number(req.params.truckId);
     if (!truckId) return res.status(400).json({ error: 'Invalid truck id' });
@@ -61,7 +125,7 @@ app.put('/providers/trucks/:truckId', async (req, res) => {
 });
 
 // Delete truck
-app.delete('/providers/trucks/:truckId', async (req, res) => {
+app.delete('/providers/trucks/:truckId', authenticate, authorizeRole('Provider'), async (req, res) => {
   try {
     const truckId = Number(req.params.truckId);
     if (!truckId) return res.status(400).json({ error: 'Invalid truck id' });
@@ -74,7 +138,7 @@ app.delete('/providers/trucks/:truckId', async (req, res) => {
 });
 
 // Routes: create a route for a truck
-app.post('/providers/trucks/:truckId/routes', async (req, res) => {
+app.post('/providers/trucks/:truckId/routes', authenticate, authorizeRole('Provider'), async (req, res) => {
   try {
     const truckId = Number(req.params.truckId);
     const payload = req.body; // { name, notes, places: [{address, lat, lng}, ...] }
@@ -88,7 +152,7 @@ app.post('/providers/trucks/:truckId/routes', async (req, res) => {
 });
 
 // Get routes for a truck
-app.get('/providers/trucks/:truckId/routes', async (req, res) => {
+app.get('/providers/trucks/:truckId/routes', authenticate, authorizeRole('Provider'), async (req, res) => {
   try {
     const truckId = Number(req.params.truckId);
     if (!truckId) return res.status(400).json({ error: 'Invalid truck id' });
@@ -126,6 +190,14 @@ app.delete('/providers/routes/:routeId', async (req, res) => {
   }
 });
 
-app.listen(PORT, () => {
-  console.log(`Backend server listening on port ${PORT}`);
-});
+// Run migrations then start server
+runMigrations()
+  .then(() => {
+    app.listen(PORT, () => {
+      console.log(`Backend server listening on port ${PORT}`);
+    });
+  })
+  .catch((err) => {
+    console.error('Failed to run migrations:', err);
+    process.exit(1);
+  });

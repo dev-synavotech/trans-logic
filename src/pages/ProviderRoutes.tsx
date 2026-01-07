@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import DashboardLayout from '@/components/dashboard/DashboardLayout';
+import { getToken } from '@/lib/auth';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -18,7 +19,8 @@ const ProviderRoutes = () => {
 
   const fetchTrucks = async () => {
     try {
-      const res = await fetch('http://localhost:8000/providers/trucks?limit=100');
+      const token = getToken();
+      const res = await fetch('http://localhost:8000/providers/trucks?limit=100', { headers: token ? { Authorization: `Bearer ${token}` } : undefined });
       const body = await res.json();
       setTrucks(body.data || []);
     } catch (err) {
@@ -28,7 +30,8 @@ const ProviderRoutes = () => {
 
   const fetchRoutes = async (truckId: number) => {
     try {
-      const res = await fetch(`http://localhost:8000/providers/trucks/${truckId}/routes`);
+      const token = getToken();
+      const res = await fetch(`http://localhost:8000/providers/trucks/${truckId}/routes`, { headers: token ? { Authorization: `Bearer ${token}` } : undefined });
       const body = await res.json();
       setRoutes(body.data || []);
     } catch (err) {
@@ -58,16 +61,17 @@ const ProviderRoutes = () => {
     setLoading(true);
     try {
       let res;
+      const token = getToken();
       if (editingRouteId) {
         res = await fetch(`http://localhost:8000/providers/routes/${editingRouteId}`, {
           method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
+          headers: Object.assign({ 'Content-Type': 'application/json' }, token ? { Authorization: `Bearer ${token}` } : {}),
           body: JSON.stringify(data)
         });
       } else {
         res = await fetch(`http://localhost:8000/providers/trucks/${selectedTruck}/routes`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: Object.assign({ 'Content-Type': 'application/json' }, token ? { Authorization: `Bearer ${token}` } : {}),
           body: JSON.stringify(data)
         });
       }
@@ -86,7 +90,8 @@ const ProviderRoutes = () => {
   const deleteRoute = async (id: number) => {
     if (!confirm('Delete this route?')) return;
     try {
-      const res = await fetch(`http://localhost:8000/providers/routes/${id}`, { method: 'DELETE' });
+      const token = getToken();
+      const res = await fetch(`http://localhost:8000/providers/routes/${id}`, { method: 'DELETE', headers: token ? { Authorization: `Bearer ${token}` } : undefined });
       if (!res.ok) throw new Error('Delete failed');
       if (selectedTruck) fetchRoutes(selectedTruck);
     } catch (err) {

@@ -1,5 +1,7 @@
 import { Truck, MapPin, Package } from "lucide-react";
 import BookingSearch from "./BookingSearch";
+import { useAuth } from "@/hooks/useAuth";
+import { Link } from "react-router-dom";
 
 const Hero = () => {
   return (
@@ -38,19 +40,9 @@ const Hero = () => {
           </div>
 
           {/* Headline */}
-          <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl xl:text-6xl font-bold text-primary-foreground leading-tight mb-3 sm:mb-4 animate-slide-up">
-            Book Your Shipment
-            <span className="block text-gradient">In Minutes</span>
-          </h1>
+          <AuthHeroContent />
 
-          {/* Subheadline */}
-          <p className="text-sm sm:text-base md:text-lg text-primary-foreground/70 max-w-2xl mx-auto mb-6 sm:mb-8 px-2 animate-slide-up animation-delay-100">
-            Search routes, compare truck options, get instant pricing, and book 
-            with real-time tracking — all on one platform.
-          </p>
 
-          {/* Booking Search Form */}
-          <BookingSearch />
 
           {/* Stats */}
           <div className="grid grid-cols-3 gap-4 sm:gap-8 mt-8 sm:mt-12 pt-6 sm:pt-10 border-t border-primary-foreground/10 animate-slide-up animation-delay-300">
@@ -75,3 +67,26 @@ const StatItem = ({ value, label }: { value: string; label: string }) => (
 );
 
 export default Hero;
+
+const AuthHeroContent = () => {
+  const { user } = useAuth();
+  return (
+    <>
+      <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl xl:text-6xl font-bold text-primary-foreground leading-tight mb-3 sm:mb-4 animate-slide-up">
+        {user ? `Welcome back, ${user.username || user.email.split('@')[0]}` : 'Book Your Shipment'}
+        <span className="block text-gradient">{user ? 'Manage your fleet & routes' : 'In Minutes'}</span>
+      </h1>
+
+      <p className="text-sm sm:text-base md:text-lg text-primary-foreground/70 max-w-2xl mx-auto mb-6 sm:mb-8 px-2 animate-slide-up animation-delay-100">
+        {user
+          ? 'Quick access to your dashboard, trucks, and active routes.'
+          : 'Search routes, compare truck options, get instant pricing, and book with real-time tracking — all on one platform.'}
+      </p>
+
+      <div className="flex items-center justify-center gap-3 mb-6">
+        <BookingSearch />
+        
+      </div>
+    </>
+  );
+};

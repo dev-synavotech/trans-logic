@@ -15,6 +15,7 @@ import AffiliateDashboard from "./pages/AffiliateDashboard";
 import CustomerDashboard from "./pages/CustomerDashboard";
 import ProviderDashboard from "./pages/ProviderDashboard";
 import ProviderRoutes from "./pages/ProviderRoutes";
+import ProviderOnly from "./components/ProviderOnly";
 import AdminDashboard from "./pages/AdminDashboard";
 
 const queryClient = new QueryClient();
@@ -42,9 +43,30 @@ const App = () => (
             <Route path="/affiliate/*" element={<AffiliateDashboard />} />
             <Route path="/customer" element={<CustomerDashboard />} />
             <Route path="/customer/*" element={<CustomerDashboard />} />
-            <Route path="/provider/routes" element={<ProviderRoutes />} />
-            <Route path="/provider" element={<ProviderDashboard />} />
-            <Route path="/provider/*" element={<ProviderDashboard />} />
+            <Route
+              path="/provider/routes"
+              element={
+                <ProviderOnly>
+                  <ProviderRoutes />
+                </ProviderOnly>
+              }
+            />
+            <Route
+              path="/provider"
+              element={
+                <ProviderOnly>
+                  <ProviderDashboard />
+                </ProviderOnly>
+              }
+            />
+            <Route
+              path="/provider/*"
+              element={
+                <ProviderOnly>
+                  <ProviderDashboard />
+                </ProviderOnly>
+              }
+            />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
